@@ -8,9 +8,7 @@ import { DatabaseService } from './database.service';
 @Injectable()
 export class GameService {
 
-
 	constructor(private readonly db: DatabaseService) {}
-
 
 	/**
 	* Starts the game in the specified room, initializing game state and distributing cards.
@@ -223,6 +221,18 @@ export class GameService {
     }
 
 
+    /**
+    * Discards the specified cards from the deck in the specified room.
+    *
+    * @param roomCode - The code of the room where the game is being played.
+    * @param discardedCards - An array of card names to be discarded.
+    */
+    public discardCards(roomCode: string, discardedCards: string[]): void {
+        const deck = this.db.roomDecks.get(roomCode);
+        deck.discardCards(discardedCards);
+    }
+
+
 	// *      Helper private functions      * //
 
 	/**
@@ -252,6 +262,7 @@ export class GameService {
         for (const item of cards) 
             if (item[2] === toFind) return item;
     }
+
 
 	/**
 	* Calculates the scores for every user based on the votes and cards in the game.
