@@ -203,6 +203,7 @@ export class GameService {
     
         const isAllUsersReady = users.every(user => user.isReadyToNextRound);
 
+        this.emitUsersToFrontEnd(roomCode, server);
         this.db.setRoom(roomCode, users);
 
         if (isAllUsersReady) {

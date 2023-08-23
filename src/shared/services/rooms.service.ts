@@ -50,7 +50,7 @@ export class RoomsService {
     * @param roomCode - The code of the room to join.
     * @returns `true` if the client successfully joins the room, otherwise `false`.
     */
-	public join(client: Socket, roomCode: string, server: Server): boolean {
+	public join(client: Socket, roomCode: string, server: Server): IUser | boolean {
         if (this.db.rooms.has(roomCode)) {
             const users = this.db.rooms.get(roomCode);
             const id = client.handshake.query.id as string;
@@ -78,9 +78,13 @@ export class RoomsService {
 
             // console.log('this.usersNameById', this.usersNameById);
             console.log(`Client ${client.id} joined room: ${roomCode}`);
-
-            return true;
+            const user = 
+                this.db.rooms.get(roomCode)
+                    .find(user => user.clientIds.some(id => id === client.id));
+            console.log('user', user);
+            return user;
         }
+
         return false;
     }
 

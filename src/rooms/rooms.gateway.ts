@@ -6,6 +6,7 @@ import {
     WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { IUser } from 'src/shared/interfaces/IUser';
 import { GameService } from 'src/shared/services/game.service';
 import { RoomsService } from 'src/shared/services/rooms.service';
 
@@ -31,7 +32,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('joinRoom')
-    public joinRoom(client: Socket, roomCode: string): boolean {
+    public joinRoom(client: Socket, roomCode: string): IUser | boolean {
         return this.roomsService.join(client, roomCode, this.server);
     }
 
