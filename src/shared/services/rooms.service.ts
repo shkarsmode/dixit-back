@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { IUser } from '../interfaces/IUser';
+import { States } from '../interfaces/states.enum';
 import { DatabaseService } from './database.service';
+import { GameService } from './game.service';
 
 @Injectable()
 export class RoomsService {
 
 	
 	constructor(
-		private db: DatabaseService
+		private db: DatabaseService,
+        private gameService: GameService
 	) {}
 
 	
@@ -55,8 +58,17 @@ export class RoomsService {
             const users = this.db.rooms.get(roomCode);
             const id = client.handshake.query.id as string;
             const username = client.handshake.query.username as string;
+            const userIndex = users.findIndex(user => user.id === id);
 
-            console.log('handshake id', id);
+            if (userIndex !== -1) {
+                users[userIndex].clientIds.push(client.id);
+                this.db.setRoom(roomCode, users);
+
+                this.sendToUserInfoAfterExitingTheRoom(roomCode, client.id, id, server);
+
+                client.join(roomCode);
+                return users[userIndex];
+            }
 
             this.addUserToRoom(
 				roomCode, 
@@ -67,7 +79,8 @@ export class RoomsService {
 					isHeader: false,
 					hand: [],
 					username,
-					isReadyToNextRound: false
+					isReadyToNextRound: false,
+                    state: States.NotStarted
 				},
 				server
 			);
@@ -86,6 +99,91 @@ export class RoomsService {
         }
 
         return false;
+    }
+
+
+    /**
+    * Sends to user info(scoreboard, association...) of his current state.
+    *
+    * @param roomCode - The code of the room.
+    * @param clientId - The socket object of the client whom sent info.
+    * @param userId - The user id.
+    * @param server - The server instance for emitting events to the room.
+    */
+    private sendToUserInfoAfterExitingTheRoom(
+        roomCode: string, 
+        clientId: string,
+        userId: string,
+        server: Server
+    ): void {
+        const users = this.db.rooms.get(roomCode);
+        const userIndex = users.findIndex(user => user.id === userId);
+        const stateOfUser = users[userIndex].state;
+
+        const updatedUsersArrayToFrontEnd = users.map(user => {
+            const { clientIds, hand, ...userWithoutFields } = user;
+            return userWithoutFields;
+        });
+        
+        server.to(clientId).emit('users', updatedUsersArrayToFrontEnd);
+
+        const cards = this.db.cardsOnTheDesk.get(roomCode);
+        if (cards) {
+            const cardsArray = Array.from(cards);
+            cardsArray.forEach(cardOnTheDeskInfo => {
+                server.to(clientId).emit('cardForTheDesk', cardOnTheDeskInfo[0]);
+            });
+        }
+
+        server.to(clientId).emit('giveCards', users[userIndex].hand);
+        server.to(clientId).emit('changeState', stateOfUser);
+
+        switch(stateOfUser) {
+            case States.NotStarted: {
+                server.to(clientId).emit('joinRoom', users.length);
+                break;
+            };
+            case States.ChooseCard: {
+                const association = this.db.roomsAssociation.get(roomCode);
+                server.to(clientId).emit('association', association);
+                break;
+            };
+            case States.ShowCardsAndVoting: {
+                const association = this.db.roomsAssociation.get(roomCode);
+                server.to(clientId).emit('association', association);
+
+                const votes = this.db.votedCards.get(roomCode);
+                if (!votes) return;
+
+                const votedCard = votes.get(users[userIndex].id);
+
+                if (!votedCard) return;
+
+                const isHeaderCard = false;
+
+                const userVote = [{
+                    card: votedCard,
+                    votes: [users[userIndex].color],
+                    isHeaderCard
+                }];
+
+                const cardsOnTheDesk = this.db.cardsOnTheDesk.get(roomCode);
+                const cardsOnTheDeskArr = Array.from(cardsOnTheDesk);
+                const card = cardsOnTheDeskArr.find(cards => cards[1] === users[userIndex].id)[0];
+
+                server.to(clientId).emit('myCardOnTheDesk', card);
+                server.to(clientId).emit('votingResults', userVote);
+
+                break;
+            };
+            case States.Results: {
+                const allVotedUsers = this.db.votedCards.get(roomCode);
+                const votesForFront = 
+                    this.gameService.getVotesForFront(Array.from(cards), allVotedUsers, users);
+
+                server.to(clientId).emit('votingResults', votesForFront);
+            }
+        }
     }
 
 

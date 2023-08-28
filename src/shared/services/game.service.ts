@@ -22,12 +22,21 @@ export class GameService {
         let isFirst = true;
         users.forEach(user => {
             if (isFirst) {
-                server.to(user.clientIds[0]).emit('changeState', States.ChooseCardAsHeader);
+                user.clientIds.forEach(clientId => {
+                    server.to(clientId).emit('changeState', States.ChooseCardAsHeader);
+                });
+                
+                user.state = States.ChooseCardAsHeader;
+
                 isFirst = false;
                 return;
             }
 
-			server.to(user.clientIds[0]).emit('changeState', States.WaitForHeader);
+            user.clientIds.forEach(clientId => {
+                server.to(clientId).emit('changeState', States.WaitForHeader);
+            });
+			
+            user.state = States.WaitForHeader;
         });
 
         this.emitUsersToFrontEnd(roomCode, server);
@@ -38,7 +47,10 @@ export class GameService {
         users.forEach(user => {
             const hand = deck.dealHand(7);
             user.hand = hand;
-            server.to(user.clientIds[0]).emit('giveCards', hand);
+            
+            user.clientIds.forEach(clientId => {
+                server.to(clientId).emit('giveCards', hand);
+            });
         });
 
         this.db.setRoom(roomCode, users);
@@ -60,22 +72,43 @@ export class GameService {
     ): void {
 
         const users = this.db.rooms.get(roomCode);
-        const user = users.filter(user => user.clientIds[0] === client.id)[0];
-        user.hand = user.hand.filter(card => card !== card);
+        const headerIndex = users.findIndex(
+            user => user.clientIds.some(
+                clientId => clientId === client.id
+            )
+        );
 
+        this.db.setRoomsAssociation(roomCode, association);
+
+        users[headerIndex].hand = users[headerIndex].hand.filter(handCard => handCard !== card);
+        
+        users[headerIndex].clientIds.forEach(clientId => {
+            server.to(clientId).emit('changeState', States.WaitForTheOthersVotes);
+        }); 
+        
         users.forEach(user => {
-            server.to(user.clientIds[0]).emit('association', association);
-            server.to(user.clientIds[0]).emit('cardForTheDesk', card);
+            user.clientIds.forEach(clientId => {
+                server.to(clientId).emit('association', association);
+                server.to(clientId).emit('cardForTheDesk', card);
+            });
             
-            if (client.id !== user.clientIds[0]) {
-                server.to(user.clientIds[0]).emit('changeState', States.ChooseCard);
+            if (users[headerIndex].id !== user.id) {
+                user.clientIds.forEach(clientId => {
+                    server.to(clientId).emit('changeState', States.ChooseCard);
+                });
+
+                user.state = States.ChooseCard;
+            } else {
+                user.state = States.WaitForTheOthersVotes;
             }
         });
+
+        this.db.setRoom(roomCode, users);
 
         const deck = this.db.roomDecks.get(roomCode);
         deck.discardCards([card]);
 
-        const cards = new Set<[string, string, string]>().add([card, client.id, 'header']);
+        const cards = new Set<[string, string, string]>().add([card, users[headerIndex].id, 'header']);
         this.db.cardsOnTheDesk.set(roomCode, cards);
     }
 
@@ -90,37 +123,62 @@ export class GameService {
 	public chooseCardAsAUser(
         client: Socket, 
         [roomCode, card]: Array<string>,
-		server
+		server: Server
     ): void {
 
         const users = this.db.rooms.get(roomCode);
-        const user = users.filter(user => user.clientIds[0] === client.id)[0];
-        user.hand = user.hand.filter(card => card !== card);
+        const userIndex = users.findIndex(
+            user => user.clientIds.some(
+                clientId => clientId === client.id
+            )
+        );
+
+        users[userIndex].hand = users[userIndex].hand.filter(handCard => handCard !== card);
 
         users.forEach(user => {
-            server.to(user.clientIds[0]).emit('cardForTheDesk', card);
+            user.clientIds.forEach(clientId => {
+                server.to(clientId).emit('cardForTheDesk', card);
+            });
         });
 
         const deck = this.db.roomDecks.get(roomCode);
         deck.discardCards([card]);
 
         const cards = this.db.cardsOnTheDesk.get(roomCode);
-        cards.add([card, client.id, 'user']);
-		
-        console.log('cards', cards);
+        cards.add([card, users[userIndex].id, 'user']);
+
+        users[userIndex].clientIds.forEach(clientId => {
+            server.to(clientId).emit('changeState', States.WaitForTheOthersVotes);
+        });
+
+        users[userIndex].state =  States.WaitForTheOthersVotes;
 
         if (cards.size === users.length) {
             const header = this.findAndReturnHeaderOfCard(cards);
+            const association = this.db.roomsAssociation.get(roomCode);
 
             users.forEach(user => {
-                if (header[1] === user.clientIds[0]) {
-                    server.to(user.clientIds[0]).emit('changeState',  States.ShowCards);
+                if (user.id === header[1]) {
+                    user.clientIds.forEach(clientId => {
+                        server.to(clientId).emit('changeState', States.ShowCardsForHeader);
+                    });
+
+                    user.state = States.ShowCardsForHeader;
+
                     return;
                 }
                 
-                server.to(user.clientIds[0]).emit('changeState', States.Voting);
+                user.clientIds.forEach(clientId => {
+                    server.to(clientId).emit('changeState', States.ShowCardsAndVoting);
+                    server.to(clientId).emit('association', association);
+                });
+
+                user.state = States.ShowCardsAndVoting;
+                
             });
         }
+
+        this.db.setRoom(roomCode, users);
     }
 
 
@@ -138,6 +196,11 @@ export class GameService {
     ): void {
 
         const users = this.db.rooms.get(roomCode);
+        const userIndex = users.findIndex(
+            user => user.clientIds.some(
+                clientId => clientId === client.id
+            )
+        );
         // * show 'ready to choose' in the view
         // users.forEach(user => {
         //     this.server.to(user).emit('voteForTheCard', card);
@@ -146,10 +209,10 @@ export class GameService {
         const votedCards = this.db.votedCards.get(roomCode);
 
         if (votedCards) {
-            votedCards.set(client.id, card);
+            votedCards.set(users[userIndex].id, card);
         } else {
             const userVotes = card;
-            const votes = new Map().set(client.id, userVotes);
+            const votes = new Map().set(users[userIndex].id, userVotes);
             this.db.setVotedCards(roomCode, votes);
         }
 
@@ -160,8 +223,11 @@ export class GameService {
             const scores = this.getCountScoreForEveryOne(allVotedUsers, cards, users);
 
             users.forEach(user => {
-                user.score += scores[user.clientIds[0]];
+                user.score += scores[user.id];
+                user.state = States.Results;
             });
+
+            this.db.setRoom(roomCode, users);
 
             this.emitUsersToFrontEnd(roomCode, server);
             // card, client.id, 'header'
@@ -195,7 +261,11 @@ export class GameService {
             return;
         }
     
-        const userIndex = users.findIndex(user => user.clientIds[0] === client.id);
+        const userIndex = users.findIndex(
+            user => user.clientIds.some(
+                clientId => clientId === client.id
+            )
+        );
     
         if (userIndex !== -1) {
             users[userIndex].isReadyToNextRound = true;
@@ -237,16 +307,20 @@ export class GameService {
 	// *      Helper private functions      * //
 
 	/**
-	* Emits the list of users in the specified room to the frontend.
+	* Emits the list of users in the specified room to 
+    * the frontend and without clientIds and hand.
 	*
 	* @param roomCode - The code of the room whose users will be emitted.
 	* @param server - The server instance used to emit events to the room.
 	*/
 	private emitUsersToFrontEnd(roomCode: string, server): void {
         const users = this.db.rooms.get(roomCode);
-        console.log('users', users);
-        
-        server.to(roomCode).emit('users', users);
+        const updatedUsersArrayToFrontEnd = users.map(user => {
+            const { clientIds, hand, ...userWithoutFields } = user;
+            return userWithoutFields;
+        });
+
+        server.to(roomCode).emit('users', updatedUsersArrayToFrontEnd);
     }
 
 
@@ -341,16 +415,21 @@ export class GameService {
 	* @param users - Array of user objects.
 	* @returns An array of vote information objects for each card.
 	*/
-	private getVotesForFront(
+	public getVotesForFront(
         cardsArray,
         allVotedUsers,
         users
     ): Array<{ card: string, votes: string[], isHeaderCard: boolean }> {
         const usersVotes: Array<{ userColor: string, vote: string }> = [];
-        for (const userVote of allVotedUsers.keys()) {
+        for (const userVoteId of allVotedUsers.keys()) {
             // const userId = users.find(user => user.clientIds[0] === vote).id;
-            const userColor = users.find(user => user.clientIds[0] === userVote).color;
-            const vote = allVotedUsers.get(userVote);
+            // const userColor = users.find(user => user.clientIds === userVote).color;
+            
+            const userColor = users.find(
+                user => user.id === userVoteId
+            ).color;
+
+            const vote = allVotedUsers.get(userVoteId);
 
             usersVotes.push({
                 userColor, vote
@@ -386,13 +465,23 @@ export class GameService {
 
         users.forEach(user => {
             if (user.isHeader) {
-                server.to(user.clientIds[0]).emit('changeState', States.ChooseCardAsHeader);
+                user.clientIds.forEach(clientId => {
+                    server.to(clientId).emit('changeState', States.ChooseCardAsHeader);
+                });
+                
+                user.state = States.ChooseCardAsHeader;
+
                 return;
             }
 
-            server.to(user.clientIds[0]).emit('changeState', States.WaitForHeader);
+            user.clientIds.forEach(clientId => {
+                server.to(clientId).emit('changeState', States.WaitForHeader);
+            });
+            
+            user.state = States.WaitForHeader;
         });
 
+        this.db.setRoom(roomCode, users);
         this.emitUsersToFrontEnd(roomCode, server);
     }
 
@@ -447,7 +536,10 @@ export class GameService {
         users.forEach(user => {
             const card = deck.drawCard();
             user.hand.push(card);
-            server.to(user.clientIds[0]).emit('giveOneCard', card);
+            
+            user.clientIds.forEach(clientId => {
+                server.to(clientId).emit('giveOneCard', card);
+            });
         });
 
         this.db.setRoom(roomCode, users);

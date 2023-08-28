@@ -1,3 +1,5 @@
+import { States } from "./states.enum";
+
 export interface IUser {
     id: string;
     clientIds: string[];
@@ -7,4 +9,5 @@ export interface IUser {
     hand: string[];
     username: string;
     isReadyToNextRound: boolean;
+    state: States;
 }

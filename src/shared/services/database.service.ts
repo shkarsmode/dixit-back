@@ -6,6 +6,7 @@ import { Deck } from '../utils/deck';
 export class DatabaseService {
 
 	private readonly db_rooms: Map<string, IUser[]> = new Map();
+	private readonly db_roomsAssociations: Map<string, string> = new Map();
     private readonly db_roomDecks: Map<string, Deck> = new Map<string, Deck>();
 												   // card, client.id, isHeader
     private readonly db_cardsOnTheDesk: Map<string, Set<[string, string, string]>> = new Map();
@@ -13,6 +14,10 @@ export class DatabaseService {
 
 	public get rooms(): Map<string, IUser[]> {
 		return this.db_rooms;
+	}
+
+	public get roomsAssociation(): Map<string, string> {
+		return this.db_roomsAssociations;
 	}
 
 	public get roomDecks(): Map<string, Deck> {
@@ -25,6 +30,10 @@ export class DatabaseService {
 
 	public get votedCards(): Map<string, any> {
 		return this.db_votedCards;
+	}
+
+	public setRoomsAssociation(roomCode: string, association: string): void {
+		this.db_roomsAssociations.set(roomCode, association);
 	}
 
 	public setRoomsDecks(roomCode: string, deck: Deck): void {
