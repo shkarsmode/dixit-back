@@ -4,6 +4,7 @@ import { RoomsGateway } from './rooms/rooms.gateway';
 import { DatabaseService } from './shared/services/database.service';
 import { GameService } from './shared/services/game.service';
 import { RoomsService } from './shared/services/rooms.service';
+import { UserService } from './shared/services/user.service';
 
 @Module({
     imports: [],
@@ -11,7 +12,8 @@ import { RoomsService } from './shared/services/rooms.service';
     providers: [
         RoomsGateway, 
         GameGateway, 
-        RoomsService, 
+        RoomsService,
+        UserService,
         GameService,
         DatabaseService
     ],

@@ -24,10 +24,6 @@ export class RoomsService {
         const username = client.handshake.query.username as string;
         const id = client.handshake.query.id as string;
         
-        // const userInfo = new Set<string>().add(client.id);
-        // this.users.set(id, userInfo);
-
-        // this.users.add({cliendId: client.id, id: id, username: username});
         console.log(`Client connected: ${client.id}, username: ${username}, id: ${id}`);
     }
 
@@ -128,6 +124,7 @@ export class RoomsService {
         server.to(clientId).emit('users', updatedUsersArrayToFrontEnd);
 
         const cards = this.db.cardsOnTheDesk.get(roomCode);
+
         if (cards) {
             const cardsArray = Array.from(cards);
             cardsArray.forEach(cardOnTheDeskInfo => {
@@ -150,6 +147,12 @@ export class RoomsService {
             };
             case States.ShowCardsAndVoting: {
                 const association = this.db.roomsAssociation.get(roomCode);
+
+                const cardsOnTheDesk = this.db.cardsOnTheDesk.get(roomCode);
+                const cardsOnTheDeskArr = Array.from(cardsOnTheDesk);
+                const card = cardsOnTheDeskArr.find(cards => cards[1] === users[userIndex].id)[0];
+
+                server.to(clientId).emit('myCardOnTheDesk', card);
                 server.to(clientId).emit('association', association);
 
                 const votes = this.db.votedCards.get(roomCode);
@@ -167,11 +170,6 @@ export class RoomsService {
                     isHeaderCard
                 }];
 
-                const cardsOnTheDesk = this.db.cardsOnTheDesk.get(roomCode);
-                const cardsOnTheDeskArr = Array.from(cardsOnTheDesk);
-                const card = cardsOnTheDeskArr.find(cards => cards[1] === users[userIndex].id)[0];
-
-                server.to(clientId).emit('myCardOnTheDesk', card);
                 server.to(clientId).emit('votingResults', userVote);
 
                 break;

@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { IUser } from 'src/shared/interfaces/IUser';
 import { GameService } from 'src/shared/services/game.service';
 import { RoomsService } from 'src/shared/services/rooms.service';
+import { UserService } from 'src/shared/services/user.service';
 
 @WebSocketGateway()
 export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -18,7 +19,8 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     constructor(
         private readonly roomsService: RoomsService,
-        private readonly gameService: GameService
+        private readonly gameService: GameService,
+        private readonly userService: UserService
     ) {}
 
 
@@ -39,6 +41,11 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @SubscribeMessage('leaveRoom')
     public leaveRoom(client: Socket, roomCode: string): void {
         this.roomsService.leave(client, roomCode, this.server);
+    }
+
+    @SubscribeMessage('changeUsername')
+    public changeUsername(client: Socket, [roomCode, userName]): void {
+        this.userService.changeUserName(client, roomCode, userName);
     }
 
     
