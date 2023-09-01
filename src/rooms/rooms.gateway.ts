@@ -25,7 +25,7 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
 
     public handleConnection(client: Socket): void {
-        this.roomsService.connect(client);
+        this.roomsService.connect(client, this.server);
     }
 
     @SubscribeMessage('createRoom')

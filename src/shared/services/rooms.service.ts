@@ -20,9 +20,11 @@ export class RoomsService {
     *
     * @param client - The socket object of the newly connected client.
     */
-    public connect(client: Socket): void {
+    public connect(client: Socket, server: Server): void {
         const username = client.handshake.query.username as string;
         const id = client.handshake.query.id as string;
+
+        server.to(client.id).emit('connectedToServer', id);
         
         console.log(`Client connected: ${client.id}, username: ${username}, id: ${id}`);
     }
