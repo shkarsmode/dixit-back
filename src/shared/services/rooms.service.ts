@@ -59,7 +59,10 @@ export class RoomsService {
             const userIndex = users.findIndex(user => user.id === id);
 
             if (userIndex !== -1) {
-                users[userIndex].clientIds.push(client.id);
+                if (!users[userIndex].clientIds.includes(client.id)) {
+                    users[userIndex].clientIds.push(client.id);
+                }
+                
                 this.db.setRoom(roomCode, users);
 
                 this.sendToUserInfoAfterExitingTheRoom(roomCode, client.id, id, server);
@@ -92,7 +95,7 @@ export class RoomsService {
             const user = 
                 this.db.rooms.get(roomCode)
                     .find(user => user.clientIds.some(id => id === client.id));
-            console.log('user', user);
+
             return user;
         }
 
@@ -115,6 +118,7 @@ export class RoomsService {
         server: Server
     ): void {
         const users = this.db.rooms.get(roomCode);
+
         const userIndex = users.findIndex(user => user.id === userId);
         const stateOfUser = users[userIndex].state;
 
