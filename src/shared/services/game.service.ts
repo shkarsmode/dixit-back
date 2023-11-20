@@ -7,7 +7,6 @@ import { DatabaseService } from './database.service';
 
 @Injectable()
 export class GameService {
-
 	constructor(private readonly db: DatabaseService) {}
 
 	/**

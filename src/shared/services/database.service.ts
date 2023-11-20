@@ -4,7 +4,6 @@ import { Deck } from '../utils/deck';
 
 @Injectable()
 export class DatabaseService {
-
 	private readonly db_rooms: Map<string, IUser[]> = new Map();
 	private readonly db_roomsAssociations: Map<string, string> = new Map();
     private readonly db_roomDecks: Map<string, Deck> = new Map<string, Deck>();

@@ -4,8 +4,6 @@ import { DatabaseService } from './database.service';
 
 @Injectable()
 export class UserService {
-
-	
 	constructor(
 		private db: DatabaseService,
 	) {}

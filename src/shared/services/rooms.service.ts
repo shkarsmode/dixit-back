@@ -7,8 +7,6 @@ import { GameService } from './game.service';
 
 @Injectable()
 export class RoomsService {
-
-	
 	constructor(
 		private db: DatabaseService,
         private gameService: GameService
