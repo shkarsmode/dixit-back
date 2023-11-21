@@ -11,7 +11,7 @@ export class Deck {
     }
 
     private initializeDeck(): void {
-        for(let i = 1; i <= 100; i++) {
+        for(let i = 1; i <= 115; i++) {
             this.cards.push(i.toString());
         }
         
