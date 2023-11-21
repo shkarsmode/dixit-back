@@ -1,10 +1,8 @@
 export class Deck {
-
     private cards: string[];
     private discardedCards: string[];
 
     constructor() {
-        // Инициализация колоды карт
         this.cards = [];
         this.discardedCards = [];
         this.initializeDeck();
@@ -14,12 +12,9 @@ export class Deck {
         for(let i = 1; i <= 115; i++) {
             this.cards.push(i.toString());
         }
-        
     }
 
-    public shuffle() {
-        // Логика перемешивания колоды карт
-        // Используем алгоритм тасования Fisher-Yates
+    public shuffle(): void {
         const cardsToShuffle = [...this.cards, ...this.discardedCards];
         for (let i = cardsToShuffle.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));

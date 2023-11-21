@@ -13,7 +13,6 @@ import { UserService } from 'src/shared/services/user.service';
 
 @WebSocketGateway()
 export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
-
     @WebSocketServer()
     public server: Server;
 
@@ -22,7 +21,6 @@ export class RoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         private readonly gameService: GameService,
         private readonly userService: UserService
     ) {}
-
 
     public handleConnection(client: Socket): void {
         this.roomsService.connect(client, this.server);
